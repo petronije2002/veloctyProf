@@ -6,6 +6,15 @@
 
 #include <cstring>
 
+
+#define ACCELERATION_POINTS 100
+#define CONSTANT_VELOCITY_POINTS 300
+#define DECELERATION_POINTS 100
+int NUM_POINTS_PER_CALL = 10;
+int TOTAL_POINTS = ACCELERATION_POINTS + CONSTANT_VELOCITY_POINTS + DECELERATION_POINTS;
+
+
+
 // ng previousPosition = 0;
 
 
@@ -194,4 +203,81 @@ uint16_t readAngle2(const int csPin) {
   
 
   return angle_;
+}
+
+
+
+void generateVelocityProfile(float targetVelocity, float sTimeDuration, float targetAngle, int totalPoints)
+{
+  float totalTime = 2 * sTimeDuration + (targetAngle / targetVelocity);
+  float aScaled = 40;
+  float c = sTimeDuration / 2;
+  float accumulatedAngle = 0.0;
+
+
+  float ideal_time = targetAngle / targetVelocity;
+
+  float angleAtSigmoid = sTimeDuration + (1 / aScaled) * log(1 + exp(-aScaled * (sTimeDuration - c)));
+
+  float totalAngleAchieved = angleAtSigmoid * 2 + (totalTime - 2 * sTimeDuration) * targetVelocity;
+
+  float scaleFactor = targetAngle / totalAngleAchieved;
+
+  // Calculate the number of points for each segment
+  int accelerationPoints = ACCELERATION_POINTS;
+  int constantVelocityPoints = CONSTANT_VELOCITY_POINTS;
+  int decelerationPoints = DECELERATION_POINTS;
+
+  // Check if the total number of points is greater than the sum of points for all segments
+  if (totalPoints > accelerationPoints + constantVelocityPoints + decelerationPoints)
+  {
+    // Adjust the number of points for the constant velocity part to ensure the total matches
+    constantVelocityPoints = totalPoints - accelerationPoints - decelerationPoints;
+  }
+
+  float x[NUM_POINTS_PER_CALL];
+  float y[NUM_POINTS_PER_CALL];
+  float angle[NUM_POINTS_PER_CALL];
+
+  int currentIndex = 0;
+  int remainingPoints = totalPoints;
+
+  while (remainingPoints > 0)
+  {
+    int pointsToGenerate = min(NUM_POINTS_PER_CALL, remainingPoints);
+
+    // Acceleration, Constant Velocity, and Deceleration combined in one loop
+    for (int i = 0; i < pointsToGenerate; i++)
+    {
+      x[i] = currentIndex * totalTime / (totalPoints);
+      float t1 = 1 / (1 + exp(-aScaled * (x[i] - c)));
+      float t2 = 1 / (1 + exp(-aScaled * 1.01 * (x[i] - (totalTime - c))));
+
+      // Acceleration
+      if (currentIndex < accelerationPoints)
+        y[i] = fabs(t1 - t2) * targetVelocity;
+
+      // Constant Velocity
+      else if (currentIndex < accelerationPoints + constantVelocityPoints)
+        y[i] = targetVelocity;
+
+      // Deceleration
+      else
+        y[i] = fabs(t2 - t1) * targetVelocity;
+
+      // Calculate angle
+
+      angle[i] = accumulatedAngle * scaleFactor;
+
+      accumulatedAngle += y[i] * (totalTime / totalPoints);
+      // accumulatedAngle += y[i] * (totalTime / totalPoints) * normalizationFactor;
+
+      currentIndex++;
+    }
+
+    // sendSerialData(x, y, angle, pointsToGenerate);
+    remainingPoints -= pointsToGenerate;
+  }
+
+  
 }

@@ -13,6 +13,9 @@ extern float targetVelocity ;     // Target velocity in degrees per second
 extern float currentPosition ;   // Current position in degrees
 extern float currentVelocity ;
 extern const int csPin;
+
+
+
 // Function declaration
 // float readAngle();
 
@@ -25,5 +28,9 @@ void parseSerialInput(String input) ;
 void readAngleTask(void *parameter);
 
 uint16_t readAngle2(const int csPin=5) ;
+
+
+void generateVelocityProfile(float targetVelocity, float sTimeDuration, float targetAngle, int totalPoints);
+
 
 #endif
